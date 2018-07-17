@@ -40,4 +40,5 @@ func HandleRequest() {
 
 func main() {
 	lambda.Start(HandleRequest)
+	// HandleRequest()
 }

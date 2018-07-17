@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"gdax_pull_transactions_ms/db"
 	"log"
@@ -154,38 +153,47 @@ func getOrders(combinedLedger []CombinedItem, start int) ([]gdax.Ledger, *int) {
 
 func getOrderUSDSum(orders []gdax.Ledger) float64 {
 	sum := 0.0
-	orderid, err := validateOrderID(orders)
+	orderids, err := validateOrderID(orders)
 	if err != nil {
 		log.Fatal(err)
 		return sum
 	}
 
 	var fills []gdax.Fill
-	cursor := gdax.GDAXClient.FillsClient.ListFills(orderid, "")
-	for cursor.HasMore {
-		if err = cursor.NextPage(&fills); err != nil {
-			log.Fatal(err)
-			return sum
-		}
-		for _, f := range fills {
-			sum += f.SumOrder()
+	for _, oid := range orderids {
+		cursor := gdax.GDAXClient.FillsClient.ListFills(oid, "")
+		for cursor.HasMore {
+			if err = cursor.NextPage(&fills); err != nil {
+				log.Fatal(err)
+				return sum
+			}
+			for _, f := range fills {
+				sum += f.SumOrder()
+			}
 		}
 	}
 	return sum
 }
 
-func validateOrderID(orders []gdax.Ledger) (string, error) {
-	var orderid string
+func contains(slice []string, item string) bool {
+	set := make(map[string]struct{}, len(slice))
+	for _, s := range slice {
+		set[s] = struct{}{}
+	}
+
+	_, ok := set[item]
+	return ok
+}
+
+func validateOrderID(orders []gdax.Ledger) ([]string, error) {
+	var orderid []string
 	var err error
 	for _, l := range orders {
-		if orderid == "" {
-			orderid = l.Details.OrderID
+		fmt.Println("orderid = " + l.Details.OrderID)
+		if contains(orderid, l.Details.OrderID) {
 			continue
 		}
-		// validate the rest are the same orderid
-		if orderid != l.Details.OrderID {
-			err = errors.New("Order ID is busted")
-		}
+		orderid = append(orderid, l.Details.OrderID)
 	}
 	return orderid, err
 }
